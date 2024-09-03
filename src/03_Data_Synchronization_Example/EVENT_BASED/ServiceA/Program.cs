@@ -1,17 +1,22 @@
-using ServiceA.Models.Entities;
-using ServiceA.Services;
-using MongoDB.Driver;
+﻿using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
+using MongoDB.Driver;
+using ServiceA.Models.Entities;
+using ServiceA.Services;
+using Shared.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 //builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<MongoDBService>();
-builder.Services.AddHttpClient("ServiceB", httpClient =>
+builder.Services.AddMassTransit(configurator =>
 {
-	httpClient.BaseAddress = new Uri("https://localhost:7009/");
+	configurator.UsingRabbitMq((context, _configurator) =>
+	{
+		_configurator.Host("...");
+	});
 });
 
 using IServiceScope scope = builder.Services.BuildServiceProvider().CreateScope();
@@ -33,23 +38,21 @@ app.MapGet("/{id}/{newName}", async (
 	[FromRoute] string id,
 	[FromRoute] string newName,
 	MongoDBService mongoDBService,
-	IHttpClientFactory httpClientFactory) =>
+	IPublishEndpoint publishEndpoint) =>
 {
-	var httpClient = httpClientFactory.CreateClient("ServiceB");
-
 	var persons = mongoDBService.GetCollection<Person>();
 
 	Person person = await (await persons.FindAsync(person => person.Id == ObjectId.Parse(id))).FirstOrDefaultAsync();
 	person.Name = newName;
 	await persons.FindOneAndReplaceAsync(p => p.Id == ObjectId.Parse(id), person);
 
-	var httpResponseMessage = await httpClient.GetAsync($"update/{person.Id}/{person.Name}");
-	if (httpResponseMessage.IsSuccessStatusCode)
+	UpdatedPersonNameEvent updatedPersonNameEvent = new()
 	{
-		var content = await httpResponseMessage.Content.ReadAsStringAsync();
-		await Console.Out.WriteLineAsync(content);
-	}
-	return true;
+		PersonId = id,
+		NewName = newName
+	};
+
+	await publishEndpoint.Publish(updatedPersonNameEvent);
 });
 
 await app.RunAsync();

@@ -7,12 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MongoDB.Bson" Version="2.28.0" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.2.5" />
     <PackageReference Include="MongoDB.Driver" Version="2.28.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\EVENT_BASED\ServiceA\ServiceA.csproj" />
+    <ProjectReference Include="..\Shared\Shared.csproj" />
   </ItemGroup>
 
 </Project>

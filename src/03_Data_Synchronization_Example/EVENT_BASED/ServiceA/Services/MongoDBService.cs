@@ -1,6 +1,6 @@
 ﻿using MongoDB.Driver;
 
-namespace ServiceB.Services;
+namespace ServiceA.Services;
 
 public class MongoDBService
 {
