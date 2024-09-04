@@ -161,3 +161,49 @@
 1. Katılımcıların hepsinden yanıt geldiği takdirde, kullanıcıdan gelen talep başarıyla tamamlanmış olur. Herhangi bir katılımcıdan yanıt gelmediğinde ise, işlem iptal edilip tüm servislerin yaptıklarının geri alınması için bu servislere **abort mesajı** gönderilir.
 
 ---
+
+## Saga Pattern
+
+- Eventual Consistency yaklaşımını uyguladığımız, bir distributed transaction yönetimi desenidir. 
+- Atomik ve bütünsel bir davranış yerine, bölünmüş bir davranış sergiler. Her sistemi kendi operasyonunu yürütmesi için serbest bırakır, bir hata oluşmazsa bu adım devam eder.
+- Şayet hata oluşursa, **Compensable Transaction** denen bir tür hata işleme stratejisi devreye girecek ve tüm işlemler rollback edilecektir.
+- Events/Choreography ve Command/Orchestration olmak üzere iki farklı implementasyonla uygulanabilmektedir.
+
+### Events/Choreography implementasyonu
+- Servislerin, merkezi bir kontrol noktası olmaksızın birbirleriyle **event**'lar yardımıyla haberleşebilmesi prensibine dayanır. Uygulanmasında genellikle *Message Broker* yapısından istifade edilir.
+- Her bir servis operasyon süresince kendi sürecine bağlı bir şekilde başarılı ya da başarısız karar vermekte ve bu neticeye göre ya kendisinden sonraki transaction'ın başlamasını sağlamakta, ya da tüm transaction'ları geri alabilmektedir. Her bir servis, **bizzat karar verici konumdadır.**
+- Bu yaklaşım, distributed transaction'a katılacak olan servis sayısının 2 ile 4 arasında olduğu durumlarda tercih edilmektedir.
+- Örneğin; 
+	1. Order Service'ta alınan POST isteği neticesinde sipariş oluşturulur.
+	1. *Order Events channel* kuyruğuna, event gönderilir.
+	1. Customer Service'ta, bu event consume edilir.
+	1. İşlemin başarı olması halinde *Customer Events channel* kuyruğuna bir event gönderilir. Başarısız durumda rollback uygulanır.
+	1. Order Service'ta bu event consume edilerek nihai karara varılır; ya order tamamlanır ya da rollback uygulanır.
+	
+- Avantajları; 
+	- Coupling azalır
+	- Performance bottleneck azalır
+	- Merkezi bir hata noktası olmadığından bakım maliyeti düşer.
+
+
+- Dezavantajları; 
+	- Hangi servisin, hangi kuyruğu dinlediğini takip etmek bir yerden sonra zorlaşmaktadır,bu nedenle yeni bir servis eklemek zor olabilir. 
+	- Servisler, birbirlerinin kuyruklarını tükettikleri için aralarında döngüsel bir bağımlılık riski ortaya çıkabilir. 
+	- Bir işlemi simüle etmek için tüm servislerin çalışıyor olması gerektiği için entegrasyon testi zordur.
+
+### Command/Orchestration implementasyonu
+- Bu yaklaşımda servisler arası distributed transaction, *Saga State Machine* ya da *Saga Orchestrator* ismi verilen **merkezi bir denetleyici** ile kontrol edilmektedir.
+- Saga Orchestrator, servisler arasındaki tüm işlemleri yönetir ve olaylar doğrultusunda hangi işlemin gerçekleşeceğine karar verir.
+- Saga Orchestrator, her kullanıcıdan gelen isteğe dair **uygulama state**'ini tutmakta ve gerektiğinde rollback işlemini bu sayede yapabilir.
+- Örneğin; 
+	1. Order Service'ta alınan POST isteği neticesinde sipariş oluşturulur. Sipariş durumu SUSPEND olarak kaydedilir.
+	1. İlgili event, Saga Orchestrator'a gönderilir.
+	1. Saga Orchestrator, EXECUTE_PAYMENT komutunu Payment Service'e, UPDATE_STOCK komutunu Stock Service'e ve ORDER_DELİVER komutunu da Delivery Service'e gönderir. (Misal olarak Stock Service'te stok miktarı yetersizse Saga Orchestrator'a OUT_OF_STOCK komutu gönderilir, ardından Saga Orchestrator bu komuttan hareketle başarısızlık olduğunu algılayıp rollback işlemlerini başlatır)
+	1. Komutları işleyen servisler, bu işlemler neticesinde nihai durumu Saga Orchestrator'a gönderir.
+	1. İşlemlerin başarı durumuna göre sipariş durumu değiştirilir.
+	
+- Avantajları; 
+	- Karmaşık iş akışlarının yönetimini kolaylaştırır
+	- Her servisin ve bu servislerin faaliyetlerinin üzerinde merkezi bir kontrol sağlar
+	- Orchestrator, tek taraflı olarak servislere bağlı olduğundan dolayı döngüsel bağımlılıklar söz konusu değildir.
+	- Her bir servisin diğer servislerle ilgili bilmesi gereken herhangi bir bilgiye ihtiyacı yoktur. Bu şekilde son derece bağımsız bir yapı sağlanır.
