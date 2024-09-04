@@ -111,3 +111,53 @@
 ### API Gateway
 
 ---
+
+## CAP Teoremi
+
+- Dağıtık sistemlerdeki veri konusunda yaşanan zorlukları açıklamaya çalışan bir teoremdir.
+- Teoride, bu kısaltmayı oluşturan 3 özelliğin aynı anda sağlanamayacağı ifade edilmektedir.
+- Bu 3 özellik arasında kararlı bir denge kurulmalıdır. 
+- Teoreme göre en fazla 2 özellik tam olarak sağlanabilir. Hangi özellikler önemliyse oraya yoğunlaşılır.
+
+### Consistency Tutarlılık
+- Bir veri değişiminde, yapılan bu değişiklik EN HIZLI ŞEKİLDE tüm servislerde tutarlı olmalıdır.
+
+### Availability Erişilebilirlik
+- Servislerin birinde meydana gelen problem, tüm servisi etkilememelidir. Servis erişilebilir ve yanıt verebilir durumda olmalıdır.
+
+### Partition Tolerance Bölüm Toleransı
+- Servisler arasında bir bağ varsa, o bağ kopsa dahi servisler ayrı ayrı kullanılabilir olmalıdır, bir tolerans gösterilmelidir. 
+
+---
+
+## Eventual Consistency
+
+- Dağıtık sistemlerde veri tutarlılığını ve senkronizasyonunu sağlamak için kullandığımız yöntemlerden biridir.
+- Verinin tüm servislerde tutarlı hale gelmesi, bir sürece bağlanmalıdır. En kısa sürede senkronizasyon sağlanmalıdır. (Arada kayıp olan süre, feda edilebilen bir tutarlılık olarak nitelendirilebilir.)
+- Genel olarak, dağıtık sistemler için best-practice olarak kabul edilir.
+
+## Strong Consistency
+
+- *Eventual Consistency*'de olduğu gibi feda edilen mikro bir sürenin tanınmadığı yaklaşımdır.
+- Tutarlılık her zaman ve anında sağlanmalıdır.
+- Bu yaklaşım, getirdiği tutarlılık garantisinin yanında yüksek maliyet ve performansta kısmi düşüşler de oluşturabilir.
+
+---
+
+## Two-Phase Commit(2PC) Protocol
+
+- Strong Consistency yaklaşımını uyguladığımız bir protokoldür.
+- Tüm kaynaklarda, yaptığımız bir işlem, ya hepsinde tamamlanmalı ya da hepsinde iptal edilmelidir. Ortası yoktur.
+- Prepare Phase ve Commit Phase olmak üzere iki aşamada gerçekleştirilir.
+
+### Prepare Phase
+1. **Koordinatör**, kullanıcıdan talebi alır.
+1. Koordinatör, aldığı talep doğrultusunda işlemi ilgilendirecek olan tüm **node**'lara hazır olup olmadıklarına dair bir mesaj gönderir ve tüm **katılımcı**lardan bu mesaja dair dönüş bekler.
+1. Katılımcıların hepsinden onay geldiği takdirde, **koordinatör** ikinci aşamayı başlatır. Onay gelmediği takdirde ikinci aşamaya geçilmeksizin bu talep iptal edilir.
+
+### Commit Phase
+1. Koordinatör, tüm **servis**lerin sorumluluklarının gerektirdiği operasyonları başlatması adına bu servislere **commit mesajı** gönderir.
+1. Koordinatör, **katılımcı**ların işlemlerini tamamlaması üzerine yanıt bekler.
+1. Katılımcıların hepsinden yanıt geldiği takdirde, kullanıcıdan gelen talep başarıyla tamamlanmış olur. Herhangi bir katılımcıdan yanıt gelmediğinde ise, işlem iptal edilip tüm servislerin yaptıklarının geri alınması için bu servislere **abort mesajı** gönderilir.
+
+---
