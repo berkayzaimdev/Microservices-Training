@@ -207,3 +207,62 @@
 	- Her servisin ve bu servislerin faaliyetlerinin üzerinde merkezi bir kontrol sağlar
 	- Orchestrator, tek taraflı olarak servislere bağlı olduğundan dolayı döngüsel bağımlılıklar söz konusu değildir.
 	- Her bir servisin diğer servislerle ilgili bilmesi gereken herhangi bir bilgiye ihtiyacı yoktur. Bu şekilde son derece bağımsız bir yapı sağlanır.
+
+---
+
+## Servisler Arası Mesaj Güvenliği
+
+- Servisler arasındaki mesajlaşmayı daha güvenli bir hazneye almak için, bu süreci DB'ye işlemekteyiz.
+- Bu sayede alıcıda ya da göndericide bir problem meydana gelirse, bu durumu daha kolay ele alabiliyoruz.
+
+### Outbox Pattern
+
+- Gönderici servisten alıcı servise gönderilen mesaj, **outbox table**'a kaydedilir.
+- Ardından **Outbox Publisher Application** servisi, bu table'dan mesajları okuyarak, bunları event kuyrukları aracılığıyla ilgili servislere gönderir.
+- Eğer servislerde anlık problemler söz konusu olursa da, yapılan işlem/ler bütünsel tutarlılık için geri alınmaktan ziyade, outbox table yardımıyla *giden kutusu*na kaydedilmeli ve düzenli aralıklarla bu tablo taranmalıdır.
+- Burada Outbox Publisher Application önemli bir işleve sahiptir; tarama ve problemin çözülmesi durumunda gerekli servislere mesajı taşıma işlemlerini yürütür.
+- Outbox Pattern sayesinde servisler arasındaki iletişi süreci; alıcı servisin yahut message broker'ın ayakta olup olmaması durumuna göre yaşanabilecek veri kaybı risklerinden arındırılarak daha güvenli hale getirilecek ve mesajın en az bir kez hedefe ulaşması garanti altına alınacaktır. Bu sayede de *Loosely Coupling* daha da artacaktır.
+- Kritik mesajlara sahip olan her bir servis, kendi Outbox Table'ına sahip olmalıdır.
+
+#### Hangi Durumlarda Kullanılır?
+
+- Bir servis tarafından mesaj yayınlandığı esnada bu mesajı doğrudan hedef servise ya da message broker'a göndermek yerine bunları bir tabloya kaydederek ardından bir publisher aracılığıyla belirli zaman aralıklarında veya **CDC(Change Data Capture)** aracılığıyla hedef servislere iletmeyi amaçlayan bir pattern'dır.
+- Mesajı en az bir kere hedefine ulaştırma garantisi sağlanır.
+- Özellikle bir serviste aynı anda iki işlemin yapıldığı bir durumda Outbox Pattern çok önemli bir çözüm olarak karşımıza çıkar; Order oluştururken hem Orders tablosuna kayıt eklenip hem de OrderCreatedEvent isimli bir event message broker'a yazılıyorsa bu durum iki farklı yapı üzerinde kalıcı işlem yapıldığı için **Dual Write** olarak isimlendirilir.
+- Dual Write durumlarında; yapılardan birinde işlem yapılıp, diğerinde yapılamaması gibi bir aksilik meydana gelirse bu yapıları dinleyen diğer servisler için ciddi bir veri tutarsızlığı oluşabilir. (uzun/kısa vadede)
+- Outbox Pattern sayesinde bu gibi senaryolar karşısında son derece faydalı çözümler yakalayabiliriz. O yüzden, Dual Write durumlarında kesinlikle Outbox Pattern kullanılmalıdır.
+
+#### Mesajlar Nasıl Publish Edilir?
+
+##### Pulling Publisher
+
+- Outbox Table'ın *belirli zaman aralıklarıyla* sorgulanıp publish işlem/lerinin yapılmasıdır. Bu uygulama basit bir console application yahut worker service olabilir.
+- Bu yöntemin tek dezavantajı; sorgulama işleminin zaman aralığı ne kadar kısa ise, veri tabanı maliyeti de o kadar yükselecektir.
+- Bir mesajın farklı publisher'lardan gönderilmesi gibi durumlarda, tekrar işleme durumlarına karşın MSSQL'deki UPLOCK ya da NoSQL'deki findAndModify gibi yöntemler uygulanabilir.
+
+##### Transaction Log Trailing
+
+- Outbox Table'ın bulunduğu veri tabanının transaction log'larının *belirli zaman aralıklarıyla* okunarak publish işlem/lerinin yapılmasıdır.
+
+#### Örnek Senaryolar
+
+- Sipariş verildikten sonra kullanıcıya e-mail göndermek
+- Kullanıcı kaydı hakkında message broker'a bir event göndermek
+- Bir sipariş verildikten sonra stoktaki ürün sayısını güncellemek
+
+### Inbox Pattern
+
+- İşlenecek mesajlar önce Inbox Table'a kaydedilip daha sonra publish edilirler.
+- Örneğin; 
+	- Gelen siparişi veri tabanına kaydedip ardından stok bilgisinin güncellenmesi için Outbox Table'a bu siparişle ilgili kaydın eklenip, publisher ile message broker'a gönderilmesi Outbox Pattern'dır.
+	- Stok bilgisini güncellemekten sorumlu consumer'ın ilgili mesajı alıp, önce Inbox Table'a işleyip ardından işlemin gerçekleştirilmesi ise Inbox Pattern'dır.
+- Outbox ve Inbox Pattern'lar, **Guaranteed Delivery Pattern**'ın birer bileşenidir!
+
+
+### Idempotents Sorunsalı
+
+- Outbox Pattern'ın görevini yaptıktan sonra, sıra mesajın durumunun güncellenmesine yahut silinmesine geldiğine tam bu esnada veri tabanı ile oluşabilecek bir iletişim hatası nedeniyle bu işlem gerçekleştirilemeyebilir.
+- Böyle bir durumda, iletişim tekrar sağlandığında, işlenmiş olan mesaj tekrar işleme tabii tutulacak ve verisel tutarlılığı bozacaktır.
+- Bu duruma karşın, consumer'ların **Idempotent** olarak tasarlanması bu olası problemi ortadan kaldıracaktır.
+- Idempotent: bir mesaj birden çok kez yayınlansa dahi consumer'lar açısından aynı etkiye sahip bir işlevsellikte olmasını sağlayacak bir güvencenin sağlanması ve tutarlılığın korunması durumudur.
+- Bu kavram, publish edilecek her bir mesaj için **ayırt edici bir değer**(anahtar, id, token) kullanılıp bu değer sayesinde bu mesajın daha önce tüketilip tüketilmediğini belirleyerek uygulanabilir. Bu değer, Outbox/Inbox table'a kaydedilmektedir.
