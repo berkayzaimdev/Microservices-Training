@@ -31,7 +31,7 @@ public class OrderOutboxPublishJob(IPublishEndpoint publishEndpoint) : IJob
 						await OrderOutboxSingletonDatabase.ExecuteAsync
 							($@"UPDATE OrderOutboxes 
 								SET PROCESSEDDATE = GETDATE() 
-								WHERE ID = '{orderOutbox.Id}'");
+								WHERE ID = '{orderOutbox.IdempotentToken}'");
                     }
                 }
             }

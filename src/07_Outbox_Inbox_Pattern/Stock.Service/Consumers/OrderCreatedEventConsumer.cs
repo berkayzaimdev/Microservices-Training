@@ -17,13 +17,18 @@ public class OrderCreatedEventConsumer : IConsumer<OrderCreatedEvent>
 
 	public async Task Consume(ConsumeContext<OrderCreatedEvent> context)
 	{
-		await _context.OrderInboxes.AddAsync(new Models.Entities.OrderInbox()
-		{
-			Processed = false,
-			Payload = JsonSerializer.Serialize(context.Message)
-		});
+		var orderInboxExist = await _context.OrderInboxes.AnyAsync(i => i.IdempotentToken.Equals(context.Message.IdempotentToken));
 
-		await _context.SaveChangesAsync();
+        if (!orderInboxExist)
+        {
+			await _context.OrderInboxes.AddAsync(new Models.Entities.OrderInbox()
+			{
+				Processed = false,
+				Payload = JsonSerializer.Serialize(context.Message)
+			});
+
+			await _context.SaveChangesAsync();
+		}
 
 		List<OrderInbox> orderInboxes = await _context.OrderInboxes.Where(i => !i.Processed).ToListAsync();
 

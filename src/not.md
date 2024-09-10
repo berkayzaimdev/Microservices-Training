@@ -265,4 +265,18 @@
 - Böyle bir durumda, iletişim tekrar sağlandığında, işlenmiş olan mesaj tekrar işleme tabii tutulacak ve verisel tutarlılığı bozacaktır.
 - Bu duruma karşın, consumer'ların **Idempotent** olarak tasarlanması bu olası problemi ortadan kaldıracaktır.
 - Idempotent: bir mesaj birden çok kez yayınlansa dahi consumer'lar açısından aynı etkiye sahip bir işlevsellikte olmasını sağlayacak bir güvencenin sağlanması ve tutarlılığın korunması durumudur.
-- Bu kavram, publish edilecek her bir mesaj için **ayırt edici bir değer**(anahtar, id, token) kullanılıp bu değer sayesinde bu mesajın daha önce tüketilip tüketilmediğini belirleyerek uygulanabilir. Bu değer, Outbox/Inbox table'a kaydedilmektedir.
+
+#### Idempotent İlkesi nasıl uygulanır?
+- Unique Transaction Identifiers => Publish edilecek her bir mesaj için **ayırt edici bir değer**(anahtar, id, token) kullanılıp bu değer sayesinde bu mesajın daha önce tüketilip tüketilmediğini belirleyerek uygulanabilir. Bu değer, Outbox/Inbox table'a kaydedilmektedir. Genellikle bu yöntemi kullanıyoruz.
+- Atomic Transaction => İşlemlere idempotent garantisi sağlayabilmek için tüm işlemi atomik hale getirebilir ve böylece *ya hep ya hiç prensibi*ni uygulayabiliriz. Maliyetli bir işlem olmakla birlikte, efektiftir.
+- Caching of Transaction Results => İşlemin sonuçlarını cache'leyerek önceki işleme dair olan sonucu baz alarak bu işlemi gerçekleştiririz.
+- Timestamp => Her işleme timestamp ekleyip belirli bir zaman aralığını kontrol ederek, bu işlemin tekrarlayıp tekrarlamadığını tespit edebiliriz.
+	
+
+#### Idempotent İlkesi'nin sağladığı avantajlar
+- Tekrarlanabilirlik ve Güvenilirlik
+- Hata Kurtarma ve Geri Alma
+- Dağıtık Sistemlerde Güvenlik
+- Performans İyileştirmesi
+- Veritabanı İşlemlerinde Tutarlılık
+- Sistemler Arası Entegrasyon
