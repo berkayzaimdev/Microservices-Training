@@ -1,0 +1,69 @@
+﻿@model IEnumerable<EventSourcingApplication.Shared.Models.Product>
+
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<h1>
+    Index
+</h1>
+
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
+<table class="table">
+    <thead>
+    <tr>
+        <th>
+            @Html.DisplayNameFor(model => model.Id)
+        </th>
+    </tr>
+    <tr>
+        <th>
+            @Html.DisplayNameFor(model => model.ProductName)
+        </th>
+    </tr>
+    <tr>
+        <th>
+            @Html.DisplayNameFor(model => model.Count)
+        </th>
+    </tr>
+    <tr>
+        <th>
+            @Html.DisplayNameFor(model => model.IsAvailable)
+        </th>
+    </tr>
+    <tr>
+        <th>
+            @Html.DisplayNameFor(model => model.Price)
+        </th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Id)
+            </td>            
+            <td>
+                @Html.DisplayFor(modelItem => item.ProductName)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Count)
+            </td>            
+            <td>
+                @Html.DisplayFor(modelItem => item.IsAvailable)
+            </td>   
+            <td>
+                @Html.DisplayFor(modelItem => item.Price)
+            </td>
+            <td>
+                @Html.ActionLink("Edit", "Edit", new{ });
+                @Html.ActionLink("Details", "Details", new{ });
+                @Html.ActionLink("Delete", "Delete", new{ });
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
